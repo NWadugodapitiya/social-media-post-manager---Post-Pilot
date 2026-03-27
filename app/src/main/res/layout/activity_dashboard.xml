@@ -47,19 +47,6 @@
             android:clickable="true"
             android:focusable="true"
             android:background="?attr/selectableItemBackgroundBorderless" />
-
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginEnd="16dp"
-            android:src="@drawable/ic_clock"
-            app:tint="@color/text_desc" />
-
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_settings"
-            app:tint="@color/text_desc" />
     </LinearLayout>
 
     <!-- Search Bar -->
@@ -81,6 +68,7 @@
             android:src="@drawable/ic_search" />
 
         <EditText
+            android:id="@+id/et_search"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
@@ -108,6 +96,7 @@
             android:paddingHorizontal="16dp">
 
             <TextView
+                android:id="@+id/tv_filter_all"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_tab_selected"
@@ -118,6 +107,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tv_filter_drafts"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
@@ -128,6 +118,7 @@
                 android:textColor="@color/text_desc" />
 
             <TextView
+                android:id="@+id/tv_filter_scheduled"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
@@ -138,6 +129,7 @@
                 android:textColor="@color/text_desc" />
 
             <TextView
+                android:id="@+id/tv_filter_published"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"

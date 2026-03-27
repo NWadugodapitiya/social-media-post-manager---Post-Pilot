@@ -1,5 +1,6 @@
 package com.postpilot.app;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -49,9 +50,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.tvPlatform.setText(post.getPlatform());
         holder.tvStatus.setText(post.getStatus());
 
-        // Set status color
         if ("Published".equals(post.getStatus())) {
-            holder.tvStatus.setBackgroundResource(R.drawable.bg_tab_unselected); // Simplified for demo
             holder.tvStatus.setTextColor(Color.parseColor("#2E7D32"));
         } else if ("Scheduled".equals(post.getStatus())) {
             holder.tvStatus.setTextColor(Color.parseColor("#FFA000"));
@@ -63,12 +62,18 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         holder.checkBox.setChecked(post.isSelected());
         holder.tvEdit.setVisibility(isSelectionMode ? View.GONE : View.VISIBLE);
 
-        holder.itemView.setSelected(post.isSelected());
         if (post.isSelected()) {
             holder.itemLayout.setBackgroundColor(Color.parseColor("#E0E9FF"));
         } else {
             holder.itemLayout.setBackgroundColor(Color.TRANSPARENT);
         }
+
+        holder.tvEdit.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), EditPostActivity.class);
+            intent.putExtra("post_title", post.getTitle());
+            intent.putExtra("post_desc", post.getDescription());
+            v.getContext().startActivity(intent);
+        });
 
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) listener.onPostClick(position);
