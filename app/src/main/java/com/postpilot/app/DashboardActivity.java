@@ -34,7 +34,7 @@ public class DashboardActivity extends AppCompatActivity implements PostAdapter.
 
         // Initialize Demo Data
         postList = new ArrayList<>();
-        postList.add(new Post("OCT 27, 2023", "Trip to the Mountains", "Exploring the hidden gems of the Rockies this summer with a...", "Instagram", "Draft"));
+        postList.add(new Post("OCT 23, 2023", "Trip to the Mountains", "Exploring the hidden gems of the Rockies this summer with a...", "Instagram", "Draft"));
         postList.add(new Post("OCT 22, 2023", "Coffee Shop Vibes", "The best espresso in the city and why productivity spikes in...", "Twitter", "Scheduled"));
         postList.add(new Post("OCT 19, 2023", "Product Launch Teaser", "Something big is coming next week. Can you guess what it is...", "LinkedIn", "Published"));
 
