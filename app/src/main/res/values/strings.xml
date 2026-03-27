@@ -1,0 +1,42 @@
+<resources>
+    <string name="app_name">PostPilot</string>
+    <string name="welcome_title">Welcome</string>
+    <string name="welcome_desc">Manage your social media presence anytime, anywhere. Create drafts offline and sync when you\'re ready.</string>
+    <string name="start_writing">Start Writing</string>
+    <string name="my_posts">My Posts</string>
+    <string name="search_hint">Search saved posts...</string>
+    <string name="all">All</string>
+    <string name="drafts">Drafts</string>
+    <string name="scheduled">Scheduled</string>
+    <string name="published">Published</string>
+    <string name="posts">Posts</string>
+    <string name="calendar">Calendar</string>
+    <string name="analytics">Analytics</string>
+    <string name="profile">Profile</string>
+    <string name="cancel">Cancel</string>
+    <string name="save_draft">Save Draft</string>
+    <string name="drafting_new_post">Drafting New Post</string>
+    <string name="offline_mode_active">OFFLINE MODE ACTIVE</string>
+    <string name="post_title_hint">Post Title</string>
+    <string name="tell_your_story">Tell your story…</string>
+    <string name="add_media_hint">Click to add media or drag and drop</string>
+    <string name="offline_storage_info">OFFLINE STORAGE: 1.2MB USED</string>
+
+    <!-- Demo Posts -->
+    <string name="post1_date">OCT 24, 2023</string>
+    <string name="post1_title">Trip to the Mountains</string>
+    <string name="post1_desc">Exploring the hidden gems of the Rockies this summer with a...</string>
+    <string name="instagram">Instagram</string>
+    <string name="draft">Draft</string>
+
+    <string name="post2_date">OCT 22, 2023</string>
+    <string name="post2_title">Coffee Shop Vibes</string>
+    <string name="post2_desc">The best espresso in the city and why productivity spikes in...</string>
+    <string name="twitter">Twitter</string>
+
+    <string name="post3_date">OCT 19, 2023</string>
+    <string name="post3_title">Product Launch Teaser</string>
+    <string name="post3_desc">Something big is coming next week. Can you guess what it is...</string>
+    <string name="linkedin">LinkedIn</string>
+    <string name="edit">Edit</string>
+</resources>
