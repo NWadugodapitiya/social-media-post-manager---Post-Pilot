@@ -1,11 +1,14 @@
 package com.postpilot.app;
 
 import android.content.Intent;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -58,6 +61,26 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             holder.tvStatus.setTextColor(Color.parseColor("#7A8599"));
         }
 
+        // Load thumbnail if available
+        String images = post.getImages();
+        if (images != null && !images.isEmpty()) {
+            String[] parts = images.split(",");
+            if (parts.length > 0) {
+                try {
+                    Uri uri = Uri.parse(parts[0]);
+                    if ("file".equals(uri.getScheme())) {
+                        holder.ivThumbnail.setImageBitmap(BitmapFactory.decodeFile(uri.getPath()));
+                    } else {
+                        holder.ivThumbnail.setImageURI(uri);
+                    }
+                } catch (Exception e) {
+                    holder.ivThumbnail.setImageResource(R.drawable.welcome_img);
+                }
+            }
+        } else {
+            holder.ivThumbnail.setImageResource(R.drawable.welcome_img);
+        }
+
         holder.checkBox.setVisibility(isSelectionMode ? View.VISIBLE : View.GONE);
         holder.checkBox.setChecked(post.isSelected());
         holder.tvEdit.setVisibility(isSelectionMode ? View.GONE : View.VISIBLE);
@@ -70,8 +93,11 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
 
         holder.tvEdit.setOnClickListener(v -> {
             Intent intent = new Intent(v.getContext(), EditPostActivity.class);
+            intent.putExtra("post_id", post.getId());
             intent.putExtra("post_title", post.getTitle());
             intent.putExtra("post_desc", post.getDescription());
+            intent.putExtra("post_images", post.getImages());
+            intent.putExtra("post_date", post.getDate());
             v.getContext().startActivity(intent);
         });
 
@@ -110,6 +136,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
         TextView tvDate, tvTitle, tvDesc, tvPlatform, tvStatus, tvEdit;
         CheckBox checkBox;
         LinearLayout itemLayout;
+        ImageView ivThumbnail;
 
         public PostViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -121,6 +148,7 @@ public class PostAdapter extends RecyclerView.Adapter<PostAdapter.PostViewHolder
             tvEdit = itemView.findViewById(R.id.tv_edit);
             checkBox = itemView.findViewById(R.id.checkbox);
             itemLayout = itemView.findViewById(R.id.item_layout);
+            ivThumbnail = itemView.findViewById(R.id.iv_post_thumbnail);
         }
     }
 }

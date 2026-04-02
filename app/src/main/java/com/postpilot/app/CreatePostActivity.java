@@ -1,20 +1,58 @@
 package com.postpilot.app;
 
+import android.app.AlertDialog;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class CreatePostActivity extends AppCompatActivity {
+
+    private EditText etTitle, etContent;
+    private DatabaseHelper dbHelper;
+    private View btnAttachImage;
+    private TextView tvMediaCount, tvSelectedDateTime;
+    private RecyclerView rvSelectedImages;
+    private SelectedImageAdapter imageAdapter;
+    private List<Uri> selectedImages = new ArrayList<>();
+    private Uri photoUri;
+    private String selectedDateTime = "";
+    
+    private static final int MAX_IMAGES = 4;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_create_post);
+
+        dbHelper = new DatabaseHelper(this);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -22,20 +60,210 @@ public class CreatePostActivity extends AppCompatActivity {
             return insets;
         });
 
-        findViewById(R.id.tv_cancel).setOnClickListener(v -> {
-            // Navigate to Dashboard when Cancel is clicked
-            Intent intent = new Intent(CreatePostActivity.this, DashboardActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(intent);
-            finish();
+        etTitle = findViewById(R.id.et_post_title);
+        etContent = findViewById(R.id.et_post_content);
+        btnAttachImage = findViewById(R.id.btn_attach_image);
+        tvMediaCount = findViewById(R.id.tv_media_count);
+        tvSelectedDateTime = findViewById(R.id.tv_selected_date_time);
+        rvSelectedImages = findViewById(R.id.rv_selected_images);
+
+        // Setup Image Adapter
+        imageAdapter = new SelectedImageAdapter(selectedImages, position -> {
+            selectedImages.remove(position);
+            updateImageUI();
         });
+        rvSelectedImages.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        rvSelectedImages.setAdapter(imageAdapter);
+
+        // Cancel Button
+        findViewById(R.id.tv_cancel).setOnClickListener(v -> finish());
         
-        findViewById(R.id.btn_save_draft).setOnClickListener(v -> {
-            // Navigate to Dashboard after saving (or just finish)
-            Intent intent = new Intent(CreatePostActivity.this, DashboardActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(intent);
-            finish();
+        // Save Draft Button
+        findViewById(R.id.btn_save_draft).setOnClickListener(v -> savePost("Draft"));
+
+        // Add Media click
+        btnAttachImage.setOnClickListener(v -> {
+            if (selectedImages.size() < MAX_IMAGES) {
+                showImageSourceDialog();
+            } else {
+                Toast.makeText(this, "Maximum 4 images allowed", Toast.LENGTH_SHORT).show();
+            }
         });
+
+        // Publish buttons
+        findViewById(R.id.btn_publish_now).setOnClickListener(v -> savePost("Published"));
+        findViewById(R.id.btn_publish_later).setOnClickListener(v -> savePost("Auto-Publish"));
+        findViewById(R.id.btn_schedule).setOnClickListener(v -> showDateTimePicker());
+        
+        if (savedInstanceState != null) {
+            photoUri = savedInstanceState.getParcelable("photo_uri");
+        }
     }
-}
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (photoUri != null) {
+            outState.putParcelable("photo_uri", photoUri);
+        }
+    }
+
+    private void showImageSourceDialog() {
+        String[] options = {"Camera", "Gallery"};
+        new AlertDialog.Builder(this)
+                .setTitle("Select Image Source")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) launchCamera();
+                    else launchGallery();
+                }).show();
+    }
+
+    private void launchCamera() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        
+        // Safety check to see if there's a camera app to handle the intent
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (IOException ex) {
+                Toast.makeText(this, "Error creating photo file", Toast.LENGTH_SHORT).show();
+            }
+            
+            if (photoFile != null) {
+                photoUri = FileProvider.getUriForFile(this, 
+                        getApplicationContext().getPackageName() + ".fileprovider", 
+                        photoFile);
+                
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
+                takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                cameraLauncher.launch(takePictureIntent);
+            }
+        } else {
+            Toast.makeText(this, "No Camera App found on your device", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void launchGallery() {
+        Intent pickPhotoIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        galleryLauncher.launch(pickPhotoIntent);
+    }
+
+    private File createImageFile() throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalCacheDir(); // Better for temporary camera images
+        return File.createTempFile(imageFileName, ".jpg", storageDir);
+    }
+
+    private final ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    Uri sourceUri = photoUri;
+                    if (sourceUri != null) {
+                        try {
+                            Uri internalUri = copyImageToInternalStorage(sourceUri);
+                            selectedImages.add(internalUri);
+                            updateImageUI();
+                        } catch (IOException e) {
+                            Toast.makeText(this, "Failed to store captured image", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                } else {
+                    Toast.makeText(this, "Camera cancelled", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> galleryLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri selectedImage = result.getData().getData();
+                    if (selectedImage != null) {
+                        try {
+                            // Copy gallery image to app's internal storage
+                            Uri internalUri = copyImageToInternalStorage(selectedImage);
+                            selectedImages.add(internalUri);
+                            updateImageUI();
+                        } catch (IOException e) {
+                            Toast.makeText(this, "Failed to copy image", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            });
+
+    private Uri copyImageToInternalStorage(Uri uri) throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "IMG_" + timeStamp + ".jpg";
+        File file = new File(getFilesDir(), fileName);
+        
+        java.io.InputStream inputStream = getContentResolver().openInputStream(uri);
+        java.io.OutputStream outputStream = new java.io.FileOutputStream(file);
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = inputStream.read(buffer)) > 0) {
+            outputStream.write(buffer, 0, length);
+        }
+        outputStream.flush();
+        outputStream.close();
+        inputStream.close();
+        
+        return Uri.fromFile(file);
+    }
+
+    private void updateImageUI() {
+        imageAdapter.notifyDataSetChanged();
+        tvMediaCount.setText("Selected " + selectedImages.size() + " / " + MAX_IMAGES + " images");
+        btnAttachImage.setVisibility(selectedImages.size() >= MAX_IMAGES ? View.GONE : View.VISIBLE);
+    }
+
+    private void showDateTimePicker() {
+        Calendar calendar = Calendar.getInstance();
+        new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            new TimePickerDialog(this, (view1, hourOfDay, minute) -> {
+                selectedDateTime = dayOfMonth + "/" + (month + 1) + "/" + year + " " + hourOfDay + ":" + minute;
+                tvSelectedDateTime.setText("Scheduled for: " + selectedDateTime);
+                tvSelectedDateTime.setVisibility(View.VISIBLE);
+                
+                // Once scheduled, we save it as a "Scheduled" post
+                savePost("Scheduled");
+                
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show();
+        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+    }
+
+    private void savePost(String status) {
+        String title = etTitle.getText().toString().trim();
+        String content = etContent.getText().toString().trim();
+
+        if (title.isEmpty()) {
+            Toast.makeText(this, "Title cannot be empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String date = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(new Date());
+        if (!selectedDateTime.isEmpty()) {
+            date = selectedDateTime;
+        }
+
+        // Convert URI list to comma-separated string
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < selectedImages.size(); i++) {
+            sb.append(selectedImages.get(i).toString());
+            if (i < selectedImages.size() - 1) sb.append(",");
+        }
+
+        Post post = new Post(date, title, content, "PostPilot", status, sb.toString());
+        
+        long id = dbHelper.addPost(post);
+        
+        if (id != -1) {
+            Toast.makeText(this, "Post " + status, Toast.LENGTH_SHORT).show();
+            finish();
+        } else {
+            Toast.makeText(this, "Error saving post", Toast.LENGTH_SHORT).show();
+        }
+    }
+}

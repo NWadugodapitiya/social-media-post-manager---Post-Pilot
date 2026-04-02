@@ -1,5 +1,6 @@
 package com.postpilot.app;
 
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,7 +33,13 @@ public class SelectedImageAdapter extends RecyclerView.Adapter<SelectedImageAdap
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        holder.ivSelected.setImageURI(imageList.get(position));
+        Uri uri = imageList.get(position);
+        if (uri.getScheme().equals("file")) {
+            holder.ivSelected.setImageBitmap(BitmapFactory.decodeFile(uri.getPath()));
+        } else {
+            holder.ivSelected.setImageURI(uri);
+        }
+        
         holder.ivRemove.setOnClickListener(v -> {
             if (listener != null) listener.onRemove(position);
         });

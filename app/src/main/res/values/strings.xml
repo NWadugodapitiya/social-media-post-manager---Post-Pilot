@@ -57,4 +57,13 @@
     <string name="schedule_post">Schedule Post</string>
     <string name="select_date_time">Select Date &amp; Time</string>
     <string name="no_date_selected">No date selected</string>
+
+    <!-- Post Preview -->
+    <string name="post_preview">Post Preview</string>
+    <string name="last_saved_info">Last saved 2 hours ago • Offline</string>
+    <string name="publish_now">Publish Now</string>
+    <string name="share">Share</string>
+    <string name="delete">Delete</string>
+    <string name="post_ready_to_sync">Post ready to sync</string>
+    <string name="view_queued">View Queued</string>
 </resources>

@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="@color/background_main"
     tools:context=".EditPostActivity">
 
     <!-- Top Toolbar -->
@@ -56,6 +56,7 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:fillViewport="true"
         app:layout_constraintBottom_toTopOf="@id/bottom_actions"
         app:layout_constraintTop_toBottomOf="@id/toolbar_divider">
 
@@ -165,46 +166,42 @@
                     android:textSize="13sp" />
             </LinearLayout>
 
-            <LinearLayout
+            <!-- Grid for 3 images per row -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_selected_images"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:nestedScrollingEnabled="false"
+                app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
+                app:spanCount="3"
+                tools:listitem="@layout/item_selected_image" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_selected_images"
+            <LinearLayout
+                android:id="@+id/btn_attach_image"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_dashed_border"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_image"
+                    app:tint="@color/text_desc" />
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                    tools:listitem="@layout/item_selected_image" />
-
-                <LinearLayout
-                    android:id="@+id/btn_attach_image"
-                    android:layout_width="100dp"
-                    android:layout_height="100dp"
-                    android:background="@drawable/bg_dashed_border"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_image"
-                        app:tint="@color/text_desc" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/attach_image"
-                        android:textColor="@color/text_desc"
-                        android:textSize="11sp" />
-                </LinearLayout>
+                    android:layout_marginTop="4dp"
+                    android:text="@string/attach_image"
+                    android:textColor="@color/text_desc"
+                    android:textSize="11sp" />
             </LinearLayout>
 
             <!-- Schedule Section -->
@@ -232,6 +229,7 @@
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:contentDescription="@null"
                     android:src="@drawable/ic_calendar"
                     app:tint="@color/text_desc" />
 
@@ -248,6 +246,7 @@
                 <ImageView
                     android:layout_width="20dp"
                     android:layout_height="20dp"
+                    android:contentDescription="@null"
                     android:src="@drawable/ic_arrow_forward"
                     app:tint="@color/text_desc" />
             </LinearLayout>
@@ -255,50 +254,68 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- Bottom Action Bar -->
+    <!-- Publication Options (Bottom Panel) -->
     <LinearLayout
         android:id="@+id/bottom_actions"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/white"
         android:elevation="8dp"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:padding="16dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_save_draft"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_tab_unselected"
-            android:drawableStart="@drawable/ic_posts"
-            android:drawablePadding="8dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:text="@string/save_draft"
-            android:textAllCaps="false"
+        <TextView
+            android:id="@+id/tv_selected_date_time_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="No time selected"
             android:textColor="@color/primary_blue"
+            android:textSize="12sp"
             android:textStyle="bold"
-            app:drawableTint="@color/primary_blue" />
+            android:visibility="gone" />
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_queue"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="@drawable/btn_primary"
-            android:drawableStart="@drawable/ic_logo"
-            android:drawablePadding="8dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:text="@string/queue_upload"
-            android:textAllCaps="false"
-            android:textColor="@color/white"
-            android:textStyle="bold"
-            app:drawableTint="@android:color/white" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_publish_now"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/btn_primary"
+                android:text="Publish Now"
+                android:textAllCaps="false"
+                android:textColor="@color/white"
+                android:textStyle="bold" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_publish_later"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_tab_unselected"
+                android:text="Publish Later"
+                android:textAllCaps="false"
+                android:textColor="#4B5563"
+                android:textStyle="bold" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_schedule"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_tab_unselected"
+                android:text="Schedule"
+                android:textAllCaps="false"
+                android:textColor="#4B5563"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

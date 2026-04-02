@@ -1,6 +1,7 @@
 package com.postpilot.app;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -19,7 +20,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class DashboardActivity extends AppCompatActivity implements PostAdapter.OnPostListener {
 
@@ -33,12 +33,20 @@ public class DashboardActivity extends AppCompatActivity implements PostAdapter.
     private TextView tvFilterAll, tvFilterDrafts, tvFilterScheduled, tvFilterPublished;
     private boolean isSelectionMode = false;
     private String currentFilter = "All";
+    private DatabaseHelper dbHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_dashboard);
+
+        TextView tvGreeting = findViewById(R.id.tv_greeting);
+        SharedPreferences sharedPreferences = getSharedPreferences("PostPilotPrefs", MODE_PRIVATE);
+        String userName = sharedPreferences.getString("userName", "Nirmal");
+        tvGreeting.setText("Hello, " + userName);
+
+        dbHelper = new DatabaseHelper(this);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -57,18 +65,7 @@ public class DashboardActivity extends AppCompatActivity implements PostAdapter.
         tvFilterScheduled = findViewById(R.id.tv_filter_scheduled);
         tvFilterPublished = findViewById(R.id.tv_filter_published);
 
-        // Initialize Demo Data
-        postList = new ArrayList<>();
-        postList.add(new Post("OCT 23, 2023", "Trip to the Mountains", "Exploring the hidden gems of the Rockies this summer with amazing views and adventures.", "Instagram", "Draft"));
-        postList.add(new Post("OCT 22, 2023", "Coffee Shop Vibes", "The best espresso in the city and why productivity spikes in cozy cafes.", "Twitter", "Published"));
-        postList.add(new Post("OCT 19, 2023", "Product Launch Teaser", "Something big is coming next week. Stay tuned for the official reveal!", "LinkedIn", "Scheduled"));
-        postList.add(new Post("OCT 18, 2023", "Workout Motivation", "Push your limits today so you can be stronger tomorrow. No excuses!", "Instagram", "Published"));
-        postList.add(new Post("OCT 17, 2023", "Travel Essentials", "Top 10 must-have items for your next adventure trip.", "Facebook", "Draft"));
-        
-        filteredList = new ArrayList<>(postList);
-        adapter = new PostAdapter(filteredList, this);
-        rvPosts.setLayoutManager(new LinearLayoutManager(this));
-        rvPosts.setAdapter(adapter);
+        loadPostsFromDatabase();
 
         setupSearch();
         setupFilters();
@@ -79,15 +76,39 @@ public class DashboardActivity extends AppCompatActivity implements PostAdapter.
             startActivity(intent);
         });
 
+        findViewById(R.id.nav_profile).setOnClickListener(v -> {
+            Intent intent = new Intent(DashboardActivity.this, ProfileActivity.class);
+            startActivity(intent);
+        });
+
         ivDelete.setOnClickListener(v -> {
             List<Post> selected = adapter.getSelectedPosts();
             if (!selected.isEmpty()) {
-                postList.removeAll(selected);
-                applyFilterAndSearch();
+                for (Post p : selected) {
+                    dbHelper.deletePost(p.getId());
+                }
+                loadPostsFromDatabase();
                 Toast.makeText(this, selected.size() + " posts deleted", Toast.LENGTH_SHORT).show();
                 exitSelectionMode();
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadPostsFromDatabase();
+        
+        // Update greeting in case name was changed in Profile
+        TextView tvGreeting = findViewById(R.id.tv_greeting);
+        SharedPreferences sharedPreferences = getSharedPreferences("PostPilotPrefs", MODE_PRIVATE);
+        String userName = sharedPreferences.getString("userName", "Nirmal");
+        tvGreeting.setText("Hello, " + userName);
+    }
+
+    private void loadPostsFromDatabase() {
+        postList = dbHelper.getAllPosts();
+        applyFilterAndSearch();
     }
 
     private void setupSearch() {
@@ -112,36 +133,31 @@ public class DashboardActivity extends AppCompatActivity implements PostAdapter.
 
     private void updateFilter(String filter) {
         currentFilter = filter;
-        
-        // Update UI
         tvFilterAll.setBackgroundResource(filter.equals("All") ? R.drawable.bg_tab_selected : R.drawable.bg_tab_unselected);
         tvFilterAll.setTextColor(filter.equals("All") ? getResources().getColor(R.color.white) : getResources().getColor(R.color.text_desc));
-        
         tvFilterDrafts.setBackgroundResource(filter.equals("Draft") ? R.drawable.bg_tab_selected : R.drawable.bg_tab_unselected);
         tvFilterDrafts.setTextColor(filter.equals("Draft") ? getResources().getColor(R.color.white) : getResources().getColor(R.color.text_desc));
-
         tvFilterScheduled.setBackgroundResource(filter.equals("Scheduled") ? R.drawable.bg_tab_selected : R.drawable.bg_tab_unselected);
         tvFilterScheduled.setTextColor(filter.equals("Scheduled") ? getResources().getColor(R.color.white) : getResources().getColor(R.color.text_desc));
-
         tvFilterPublished.setBackgroundResource(filter.equals("Published") ? R.drawable.bg_tab_selected : R.drawable.bg_tab_unselected);
         tvFilterPublished.setTextColor(filter.equals("Published") ? getResources().getColor(R.color.white) : getResources().getColor(R.color.text_desc));
-
         applyFilterAndSearch();
     }
 
     private void applyFilterAndSearch() {
         String query = etSearch.getText().toString().toLowerCase();
-        
+        if (filteredList == null) filteredList = new ArrayList<>();
         filteredList.clear();
         for (Post post : postList) {
             boolean matchesFilter = currentFilter.equals("All") || post.getStatus().equals(currentFilter);
             boolean matchesSearch = post.getTitle().toLowerCase().contains(query) || post.getDescription().toLowerCase().contains(query);
-            
-            if (matchesFilter && matchesSearch) {
-                filteredList.add(post);
-            }
+            if (matchesFilter && matchesSearch) filteredList.add(post);
         }
-        adapter.notifyDataSetChanged();
+        if (adapter == null) {
+            adapter = new PostAdapter(filteredList, this);
+            rvPosts.setLayoutManager(new LinearLayoutManager(this));
+            rvPosts.setAdapter(adapter);
+        } else adapter.notifyDataSetChanged();
     }
 
     @Override
@@ -153,7 +169,16 @@ public class DashboardActivity extends AppCompatActivity implements PostAdapter.
     @Override
     public void onPostClick(int position) {
         if (isSelectionMode) toggleSelection(position);
-        else Toast.makeText(this, "Opening " + filteredList.get(position).getTitle(), Toast.LENGTH_SHORT).show();
+        else {
+            Post post = filteredList.get(position);
+            Intent intent = new Intent(this, PostPreviewActivity.class);
+            intent.putExtra("post_id", post.getId());
+            intent.putExtra("post_title", post.getTitle());
+            intent.putExtra("post_desc", post.getDescription());
+            intent.putExtra("post_images", post.getImages());
+            intent.putExtra("post_date", post.getDate());
+            startActivity(intent);
+        }
     }
 
     private void enterSelectionMode() {

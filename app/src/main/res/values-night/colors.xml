@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary_blue">#536DFE</color>
+    <color name="primary_blue_light">#1A1F2B</color>
+    <color name="white">#000000</color>
+    <color name="black">#FFFFFF</color>
+    
+    <!-- Semantic Dark Mode Colors -->
+    <color name="background_main">#0F172A</color>
+    <color name="background_card">#1E293B</color>
+    <color name="text_title">#F1F5F9</color>
+    <color name="text_desc">#94A3B8</color>
+    <color name="divider_color">#334155</color>
+    <color name="edittext_bg_color">#1E293B</color>
+
+    <color name="illustration_bg">#1E293B</color>
+    <color name="light_blue_bg">#1A1F2B</color>
+</resources>

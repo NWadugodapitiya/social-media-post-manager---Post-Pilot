@@ -6,34 +6,46 @@ import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class EditPostActivity extends AppCompatActivity {
 
     private EditText etTitle, etContent;
     private ImageView ivBack, ivDelete;
     private View btnAttachImage, btnPickDateTime;
-    private TextView tvSelectedDateTime, tvMediaCount;
+    private TextView tvSelectedDateTime, tvMediaCount, tvSelectedDateTimeStatus;
     private RecyclerView rvSelectedImages;
     private SelectedImageAdapter imageAdapter;
     private List<Uri> selectedImages = new ArrayList<>();
+    private Uri photoUri;
+    private String postDate;
+    private int postId;
+    private DatabaseHelper dbHelper;
     
     private static final int MAX_IMAGES = 4;
 
@@ -59,22 +71,41 @@ public class EditPostActivity extends AppCompatActivity {
         tvMediaCount = findViewById(R.id.tv_media_count);
         rvSelectedImages = findViewById(R.id.rv_selected_images);
 
-        // Setup RecyclerView for images
+        dbHelper = new DatabaseHelper(this);
+
+        // Setup RecyclerView for images with 3 columns
         imageAdapter = new SelectedImageAdapter(selectedImages, position -> {
             selectedImages.remove(position);
             updateImageUI();
         });
-        rvSelectedImages.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false));
+        rvSelectedImages.setLayoutManager(new GridLayoutManager(this, 3));
         rvSelectedImages.setAdapter(imageAdapter);
 
         // Get data from intent
+        postId = getIntent().getIntExtra("post_id", -1);
         String title = getIntent().getStringExtra("post_title");
         String content = getIntent().getStringExtra("post_desc");
+        String images = getIntent().getStringExtra("post_images");
+        postDate = getIntent().getStringExtra("post_date");
+        if (postDate == null) postDate = "";
+        
         if (title != null) etTitle.setText(title);
         if (content != null) etContent.setText(content);
+        
+        // Parse and load images
+        if (images != null && !images.isEmpty()) {
+            String[] imagePaths = images.split(",");
+            for (String path : imagePaths) {
+                if (!path.trim().isEmpty()) {
+                    selectedImages.add(Uri.parse(path.trim()));
+                }
+            }
+            updateImageUI();
+        }
 
         ivBack.setOnClickListener(v -> finish());
         ivDelete.setOnClickListener(v -> {
+            dbHelper.deletePost(postId);
             Toast.makeText(this, "Post Deleted", Toast.LENGTH_SHORT).show();
             finish();
         });
@@ -88,8 +119,49 @@ public class EditPostActivity extends AppCompatActivity {
         });
 
         btnPickDateTime.setOnClickListener(v -> showDateTimePicker());
-        findViewById(R.id.btn_save_draft).setOnClickListener(v -> finish());
-        findViewById(R.id.btn_queue).setOnClickListener(v -> finish());
+        findViewById(R.id.btn_publish_now).setOnClickListener(v -> savePost("Published"));
+        findViewById(R.id.btn_publish_later).setOnClickListener(v -> savePost("Auto-Publish"));
+        findViewById(R.id.btn_schedule).setOnClickListener(v -> showDateTimePicker());
+        
+        tvSelectedDateTimeStatus = findViewById(R.id.tv_selected_date_time_status);
+
+        if (savedInstanceState != null) {
+            photoUri = savedInstanceState.getParcelable("photo_uri");
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (photoUri != null) {
+            outState.putParcelable("photo_uri", photoUri);
+        }
+    }
+
+    private void savePost(String status) {
+        String title = etTitle.getText().toString();
+        String content = etContent.getText().toString();
+
+        if (title.isEmpty()) {
+            Toast.makeText(this, "Title cannot be empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Convert selected images back to a comma-separated string
+        StringBuilder imagesBuilder = new StringBuilder();
+        for (int i = 0; i < selectedImages.size(); i++) {
+            imagesBuilder.append(selectedImages.get(i).toString());
+            if (i < selectedImages.size() - 1) {
+                imagesBuilder.append(",");
+            }
+        }
+
+        Post post = new Post(postDate, title, content, "PostPilot", status, imagesBuilder.toString());
+        post.setId(postId);
+        dbHelper.updatePost(post);
+
+        Toast.makeText(this, "Post Updated as " + status, Toast.LENGTH_SHORT).show();
+        finish();
     }
 
     private void showImageSourceDialog() {
@@ -98,8 +170,7 @@ public class EditPostActivity extends AppCompatActivity {
                 .setTitle(R.string.select_image_source)
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
-                        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                        cameraLauncher.launch(takePictureIntent);
+                        launchCamera();
                     } else {
                         Intent pickPhotoIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                         galleryLauncher.launch(pickPhotoIntent);
@@ -107,13 +178,55 @@ public class EditPostActivity extends AppCompatActivity {
                 }).show();
     }
 
+    private void launchCamera() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (IOException ex) {
+                Toast.makeText(this, "Error creating photo file", Toast.LENGTH_SHORT).show();
+            }
+            
+            if (photoFile != null) {
+                photoUri = FileProvider.getUriForFile(this, 
+                        getApplicationContext().getPackageName() + ".fileprovider", 
+                        photoFile);
+                
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
+                takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                cameraLauncher.launch(takePictureIntent);
+            }
+        } else {
+            Toast.makeText(this, "No Camera App found on your device", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private File createImageFile() throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalCacheDir();
+        return File.createTempFile(imageFileName, ".jpg", storageDir);
+    }
+
     private final ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    // Note: For real apps, you should save the bitmap to a file and get Uri
-                    // Here we handle it simply for the UI demo
-                    Toast.makeText(this, "Image captured (Uri logic needed for persistent list)", Toast.LENGTH_SHORT).show();
+                if (result.getResultCode() == RESULT_OK) {
+                    Uri sourceUri = photoUri;
+                    if (sourceUri != null) {
+                        try {
+                            Uri internalUri = copyImageToInternalStorage(sourceUri);
+                            selectedImages.add(internalUri);
+                            updateImageUI();
+                        } catch (IOException e) {
+                            Toast.makeText(this, "Failed to store captured image", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                } else {
+                    Toast.makeText(this, "Camera cancelled", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -123,11 +236,35 @@ public class EditPostActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri selectedImage = result.getData().getData();
                     if (selectedImage != null) {
-                        selectedImages.add(selectedImage);
-                        updateImageUI();
+                        try {
+                            Uri internalUri = copyImageToInternalStorage(selectedImage);
+                            selectedImages.add(internalUri);
+                            updateImageUI();
+                        } catch (IOException e) {
+                            Toast.makeText(this, "Failed to copy image", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 }
             });
+
+    private Uri copyImageToInternalStorage(Uri uri) throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "IMG_" + timeStamp + ".jpg";
+        File file = new File(getFilesDir(), fileName);
+        
+        java.io.InputStream inputStream = getContentResolver().openInputStream(uri);
+        java.io.OutputStream outputStream = new java.io.FileOutputStream(file);
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = inputStream.read(buffer)) > 0) {
+            outputStream.write(buffer, 0, length);
+        }
+        outputStream.flush();
+        outputStream.close();
+        inputStream.close();
+        
+        return Uri.fromFile(file);
+    }
 
     private void updateImageUI() {
         imageAdapter.notifyDataSetChanged();
@@ -141,6 +278,11 @@ public class EditPostActivity extends AppCompatActivity {
             new TimePickerDialog(this, (view1, hourOfDay, minute) -> {
                 String dateTime = dayOfMonth + "/" + (month + 1) + "/" + year + " " + hourOfDay + ":" + minute;
                 tvSelectedDateTime.setText(dateTime);
+                if (tvSelectedDateTimeStatus != null) {
+                    tvSelectedDateTimeStatus.setText("Scheduled for: " + dateTime);
+                    tvSelectedDateTimeStatus.setVisibility(View.VISIBLE);
+                }
+                savePost("Scheduled");
             }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show();
         }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
     }
