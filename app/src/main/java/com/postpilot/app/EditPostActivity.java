@@ -1,9 +1,11 @@
 package com.postpilot.app;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -18,6 +20,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -25,7 +28,10 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -48,6 +54,15 @@ public class EditPostActivity extends AppCompatActivity {
     private DatabaseHelper dbHelper;
     
     private static final int MAX_IMAGES = 4;
+
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    launchCamera();
+                } else {
+                    Toast.makeText(this, "Camera permission is required to take photos", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -170,12 +185,20 @@ public class EditPostActivity extends AppCompatActivity {
                 .setTitle(R.string.select_image_source)
                 .setItems(options, (dialog, which) -> {
                     if (which == 0) {
-                        launchCamera();
+                        checkCameraPermission();
                     } else {
                         Intent pickPhotoIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                         galleryLauncher.launch(pickPhotoIntent);
                     }
                 }).show();
+    }
+
+    private void checkCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            launchCamera();
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA);
+        }
     }
 
     private void launchCamera() {
@@ -252,16 +275,14 @@ public class EditPostActivity extends AppCompatActivity {
         String fileName = "IMG_" + timeStamp + ".jpg";
         File file = new File(getFilesDir(), fileName);
         
-        java.io.InputStream inputStream = getContentResolver().openInputStream(uri);
-        java.io.OutputStream outputStream = new java.io.FileOutputStream(file);
-        byte[] buffer = new byte[1024];
-        int length;
-        while ((length = inputStream.read(buffer)) > 0) {
-            outputStream.write(buffer, 0, length);
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             OutputStream out = new FileOutputStream(file)) {
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
         }
-        outputStream.flush();
-        outputStream.close();
-        inputStream.close();
         
         return Uri.fromFile(file);
     }

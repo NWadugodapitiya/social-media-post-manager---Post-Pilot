@@ -1,9 +1,11 @@
 package com.postpilot.app;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -17,6 +19,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -24,7 +27,10 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -45,6 +51,15 @@ public class CreatePostActivity extends AppCompatActivity {
     private String selectedDateTime = "";
     
     private static final int MAX_IMAGES = 4;
+
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    launchCamera();
+                } else {
+                    Toast.makeText(this, "Camera permission is required to take photos", Toast.LENGTH_SHORT).show();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -113,9 +128,17 @@ public class CreatePostActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle("Select Image Source")
                 .setItems(options, (dialog, which) -> {
-                    if (which == 0) launchCamera();
+                    if (which == 0) checkCameraPermission();
                     else launchGallery();
                 }).show();
+    }
+
+    private void checkCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            launchCamera();
+        } else {
+            requestPermissionLauncher.launch(Manifest.permission.CAMERA);
+        }
     }
 
     private void launchCamera() {
@@ -198,40 +221,50 @@ public class CreatePostActivity extends AppCompatActivity {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         String fileName = "IMG_" + timeStamp + ".jpg";
         File file = new File(getFilesDir(), fileName);
-        
-        java.io.InputStream inputStream = getContentResolver().openInputStream(uri);
-        java.io.OutputStream outputStream = new java.io.FileOutputStream(file);
-        byte[] buffer = new byte[1024];
-        int length;
-        while ((length = inputStream.read(buffer)) > 0) {
-            outputStream.write(buffer, 0, length);
+
+        try (InputStream in = getContentResolver().openInputStream(uri);
+             OutputStream out = new FileOutputStream(file)) {
+            byte[] buf = new byte[1024];
+            int len;
+            while ((len = in.read(buf)) > 0) {
+                out.write(buf, 0, len);
+            }
         }
-        outputStream.flush();
-        outputStream.close();
-        inputStream.close();
-        
         return Uri.fromFile(file);
     }
 
     private void updateImageUI() {
         imageAdapter.notifyDataSetChanged();
-        tvMediaCount.setText("Selected " + selectedImages.size() + " / " + MAX_IMAGES + " images");
+        tvMediaCount.setText(selectedImages.size() + "/4 Photos");
         btnAttachImage.setVisibility(selectedImages.size() >= MAX_IMAGES ? View.GONE : View.VISIBLE);
     }
 
     private void showDateTimePicker() {
-        Calendar calendar = Calendar.getInstance();
-        new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
-            new TimePickerDialog(this, (view1, hourOfDay, minute) -> {
-                selectedDateTime = dayOfMonth + "/" + (month + 1) + "/" + year + " " + hourOfDay + ":" + minute;
-                tvSelectedDateTime.setText("Scheduled for: " + selectedDateTime);
-                tvSelectedDateTime.setVisibility(View.VISIBLE);
-                
-                // Once scheduled, we save it as a "Scheduled" post
-                savePost("Scheduled");
-                
-            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true).show();
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show();
+        final Calendar c = Calendar.getInstance();
+        int year = c.get(Calendar.YEAR);
+        int month = c.get(Calendar.MONTH);
+        int day = c.get(Calendar.DAY_OF_MONTH);
+
+        DatePickerDialog datePickerDialog = new DatePickerDialog(this,
+                (view, year1, monthOfYear, dayOfMonth) -> {
+                    String date = dayOfMonth + "/" + (monthOfYear + 1) + "/" + year1;
+                    showTimePicker(date);
+                }, year, month, day);
+        datePickerDialog.show();
+    }
+
+    private void showTimePicker(String date) {
+        final Calendar c = Calendar.getInstance();
+        int hour = c.get(Calendar.HOUR_OF_DAY);
+        int minute = c.get(Calendar.MINUTE);
+
+        TimePickerDialog timePickerDialog = new TimePickerDialog(this,
+                (view, hourOfDay, minute1) -> {
+                    selectedDateTime = date + " " + String.format(Locale.getDefault(), "%02d:%02d", hourOfDay, minute1);
+                    tvSelectedDateTime.setText("Scheduled for: " + selectedDateTime);
+                    tvSelectedDateTime.setVisibility(View.VISIBLE);
+                }, hour, minute, true);
+        timePickerDialog.show();
     }
 
     private void savePost(String status) {
@@ -239,31 +272,29 @@ public class CreatePostActivity extends AppCompatActivity {
         String content = etContent.getText().toString().trim();
 
         if (title.isEmpty()) {
-            Toast.makeText(this, "Title cannot be empty", Toast.LENGTH_SHORT).show();
+            etTitle.setError("Title is required");
             return;
         }
 
-        String date = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(new Date());
-        if (!selectedDateTime.isEmpty()) {
-            date = selectedDateTime;
-        }
-
-        // Convert URI list to comma-separated string
-        StringBuilder sb = new StringBuilder();
+        String postDate = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date());
+        
+        // Convert selected images to a comma-separated string
+        StringBuilder imagesBuilder = new StringBuilder();
         for (int i = 0; i < selectedImages.size(); i++) {
-            sb.append(selectedImages.get(i).toString());
-            if (i < selectedImages.size() - 1) sb.append(",");
+            imagesBuilder.append(selectedImages.get(i).toString());
+            if (i < selectedImages.size() - 1) {
+                imagesBuilder.append(",");
+            }
         }
 
-        Post post = new Post(date, title, content, "PostPilot", status, sb.toString());
-        
+        Post post = new Post(postDate, title, content, "PostPilot", status, imagesBuilder.toString());
         long id = dbHelper.addPost(post);
-        
-        if (id != -1) {
-            Toast.makeText(this, "Post " + status, Toast.LENGTH_SHORT).show();
+
+        if (id > 0) {
+            Toast.makeText(this, "Post saved as " + status, Toast.LENGTH_SHORT).show();
             finish();
         } else {
             Toast.makeText(this, "Error saving post", Toast.LENGTH_SHORT).show();
         }
     }
-}
+}
