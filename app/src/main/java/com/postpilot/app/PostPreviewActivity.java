@@ -12,6 +12,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import android.content.SharedPreferences;
+import android.util.Log;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class PostPreviewActivity extends AppCompatActivity {
 
@@ -93,7 +103,101 @@ public class PostPreviewActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btn_publish).setOnClickListener(v -> {
-            Toast.makeText(this, "Publishing...", Toast.LENGTH_SHORT).show();
+            SharedPreferences sharedPref = getSharedPreferences("PostPilotPrefs", MODE_PRIVATE);
+            String pageId = sharedPref.getString("fb_page_id", null);
+            String pageToken = sharedPref.getString("fb_page_token", null);
+
+            if (pageId == null || pageToken == null) {
+                Toast.makeText(this, "Connect to Facebook first in the Welcome screen!", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Publishing to Facebook...", Toast.LENGTH_SHORT).show();
+                
+                if (postImages != null && !postImages.isEmpty()) {
+                    // Post image if available (using sample URL logic for now)
+                    postImage(pageId, pageToken);
+                } else {
+                    // Just post text
+                    postToPage(pageId, pageToken);
+                }
+            }
         });
     }
+
+    private void postToPage(String pageId, String pageToken) {
+        String url = "https://graph.facebook.com/v20.0/" + pageId + "/feed";
+
+        RequestQueue queue = Volley.newRequestQueue(this);
+
+        StringRequest request = new StringRequest(Request.Method.POST, url,
+                response -> {
+                    Log.d("POST_SUCCESS", "Response: " + response);
+                    Toast.makeText(this, "Post successfully published to Facebook Page!", Toast.LENGTH_LONG).show();
+                },
+                error -> {
+                    String errorMsg = "Error";
+                    if (error.networkResponse != null && error.networkResponse.data != null) {
+                        try {
+                            errorMsg = new String(error.networkResponse.data, "UTF-8");
+                        } catch (Exception e) {
+                            errorMsg = error.toString();
+                        }
+                    } else {
+                        errorMsg = error.toString();
+                    }
+                    Log.e("POST_ERROR", errorMsg);
+                    Toast.makeText(this, "FB Error: " + errorMsg, Toast.LENGTH_LONG).show();
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("message", postDesc);
+                params.put("access_token", pageToken);
+                return params;
+            }
+        };
+
+        queue.add(request);
+    }
+
+    private void postImage(String pageId, String pageToken) {
+        String url = "https://graph.facebook.com/v20.0/" + pageId + "/photos";
+
+        RequestQueue queue = Volley.newRequestQueue(this);
+
+        StringRequest request = new StringRequest(Request.Method.POST, url,
+                response -> {
+                    Log.d("IMG_SUCCESS", "Response: " + response);
+                    Toast.makeText(this, "Image published to Facebook!", Toast.LENGTH_LONG).show();
+                },
+                error -> {
+                    String errorMsg = "Error";
+                    if (error.networkResponse != null && error.networkResponse.data != null) {
+                        try {
+                            errorMsg = new String(error.networkResponse.data, "UTF-8");
+                        } catch (Exception e) {
+                            errorMsg = error.toString();
+                        }
+                    } else {
+                        errorMsg = error.toString();
+                    }
+                    Log.e("IMG_ERROR", errorMsg);
+                    Toast.makeText(this, "FB Image Error: " + errorMsg, Toast.LENGTH_LONG).show();
+                }
+        ) {
+
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                // For demonstration, we use the sample URL from the user request
+                params.put("url", "https://picsum.photos/500"); 
+                params.put("caption", postDesc);
+                params.put("access_token", pageToken);
+                return params;
+            }
+        };
+
+        queue.add(request);
+    }
+
 }

@@ -292,8 +292,15 @@ public class CreatePostActivity extends AppCompatActivity {
 
         if (id > 0) {
             Toast.makeText(this, "Post saved as " + status, Toast.LENGTH_SHORT).show();
+            
+            // Auto-publish to Facebook if status is Published
+            if (status.equals("Published")) {
+                new FacebookHelper(this).publishPost(content, imagesBuilder.toString());
+            }
+            
             finish();
         } else {
+
             Toast.makeText(this, "Error saving post", Toast.LENGTH_SHORT).show();
         }
     }

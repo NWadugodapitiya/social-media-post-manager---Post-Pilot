@@ -68,17 +68,31 @@
         android:layout_marginBottom="15dp"
         android:inputType="textPersonName" />
 
-    <EditText
-        android:id="@+id/et_facebook_token"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Facebook Connection"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_desc"
+        android:layout_marginBottom="15dp" />
+
+    <TextView
+        android:id="@+id/tv_fb_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Not connected"
+        android:textSize="14sp"
+        android:textColor="@color/text_desc"
+        android:layout_marginBottom="10dp" />
+
+    <com.facebook.login.widget.LoginButton
+        android:id="@+id/login_button"
         android:layout_width="match_parent"
         android:layout_height="55dp"
-        android:background="@drawable/edittext_bg_drawable"
-        android:hint="Facebook Access Token"
-        android:paddingLeft="15dp"
-        android:paddingRight="15dp"
-        android:textSize="14sp"
-        android:layout_marginBottom="25dp"
-        android:inputType="textPassword" />
+        android:layout_marginBottom="25dp" />
+
+
 
     <TextView
         android:layout_width="wrap_content"

@@ -66,4 +66,9 @@
     <string name="delete">Delete</string>
     <string name="post_ready_to_sync">Post ready to sync</string>
     <string name="view_queued">View Queued</string>
+    
+    <!-- Facebook SDK -->
+    <string name="facebook_app_id">1513282240355116</string>
+    <string name="facebook_client_token">YOUR_CLIENT_TOKEN_HERE</string>
+    <string name="fb_login_protocol_scheme">fb1513282240355116</string>
 </resources>

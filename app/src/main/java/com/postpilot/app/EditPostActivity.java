@@ -176,6 +176,12 @@ public class EditPostActivity extends AppCompatActivity {
         dbHelper.updatePost(post);
 
         Toast.makeText(this, "Post Updated as " + status, Toast.LENGTH_SHORT).show();
+        
+        // Auto-publish to Facebook if status is Published
+        if (status.equals("Published")) {
+            new FacebookHelper(this).publishPost(content, imagesBuilder.toString());
+        }
+        
         finish();
     }
 

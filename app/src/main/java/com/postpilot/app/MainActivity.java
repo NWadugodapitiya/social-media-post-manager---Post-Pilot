@@ -17,12 +17,20 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+
 import java.util.concurrent.Executor;
+
+
+import android.util.Log;
+
+
 
 public class MainActivity extends AppCompatActivity {
 
     private Handler redirectHandler;
     private Runnable redirectRunnable;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
             };
             redirectHandler.postDelayed(redirectRunnable, 3000);
         }
+
     }
 
     private void showBiometricPrompt() {
@@ -115,7 +124,10 @@ public class MainActivity extends AppCompatActivity {
         // finish(); 
     }
 
+
     @Override
+
+
     protected void onDestroy() {
         super.onDestroy();
         // Prevent memory leaks
